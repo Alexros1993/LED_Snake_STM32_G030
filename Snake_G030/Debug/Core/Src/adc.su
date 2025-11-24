@@ -1,0 +1,2 @@
+../Core/Src/adc.c:10:10:read_adc	40	static
+../Core/Src/adc.c:27:10:read_adc_avg	32	static

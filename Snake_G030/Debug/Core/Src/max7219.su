@@ -1,0 +1,4 @@
+../Core/Src/max7219.c:10:6:MAX7219_LED_Matrix_fill	48	static
+../Core/Src/max7219.c:32:6:MAX7219_Init	16	static
+../Core/Src/max7219.c:46:6:MAX7219_write	24	static
+../Core/Src/max7219.c:54:6:MAX7219_Clear_digit_registers	32	static

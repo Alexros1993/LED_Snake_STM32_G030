@@ -1,0 +1,6 @@
+../Core/Src/game_logic.c:21:6:setup_game	3
+../Core/Src/game_logic.c:97:6:run_game	2
+../Core/Src/game_logic.c:111:6:joy_controller	10
+../Core/Src/game_logic.c:141:6:fill_matrix	3
+../Core/Src/game_logic.c:150:6:add_snake_element	1
+../Core/Src/game_logic.c:157:6:update_snake_position	7

@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <string.h>
+#include "max7219.h"
+#include "game_logic.h"
 
 /* USER CODE END Includes */
 
@@ -32,10 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define COLS 8
-#define ROWS 8
-#define SNAKE_START_POS_X 4
-#define SNAKE_START_POS_Y 7
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,7 +49,6 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-uint8_t MATRIX[ROWS][COLS];
 
 /* USER CODE END PV */
 
@@ -67,164 +64,6 @@ static void MX_SPI1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-uint16_t read_adc(uint32_t channel) {
-	ADC_ChannelConfTypeDef sConfig = { 0 };
-	sConfig.Channel = channel;
-	sConfig.Rank = ADC_REGULAR_RANK_1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_39CYCLES_5;
-
-	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-	uint16_t value = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
-	return value;
-
-}
-
-uint16_t read_adc_avg(uint32_t channel, uint8_t samples) {
-	uint32_t sum = 0;
-	for (uint8_t i = 0; i < samples; i++) {
-		sum += read_adc(channel);
-	}
-	return sum / samples;
-}
-
-void max7219_write(uint8_t reg, uint8_t data) {
-	HAL_GPIO_WritePin(GPIOA, SPI1_CS_Pin, GPIO_PIN_RESET);
-	uint8_t buf[2] = { reg, data };
-
-	HAL_SPI_Transmit(&hspi1, buf, sizeof(buf), 1000);
-	HAL_GPIO_WritePin(GPIOA, SPI1_CS_Pin, GPIO_PIN_SET);
-}
-
-void joy_controller(int8_t *dir_x, int8_t *dir_y, int8_t *is_pressed) {
-	uint16_t joy_x, joy_y;
-	uint8_t joy_sw;
-
-	joy_y = read_adc_avg(ADC_CHANNEL_1, 10);
-	joy_x = read_adc_avg(ADC_CHANNEL_0, 10);
-	joy_sw = HAL_GPIO_ReadPin(GPIOA, SW_Pin);
-
-	if (joy_x < 100 && *dir_x == 0) {
-		*dir_x = -1;
-		*dir_y = 0;
-	} else if (joy_x > 3700 && *dir_x == 0) {
-		*dir_x = 1;
-		*dir_y = 0;
-	} else if (joy_y < 100 && *dir_y == 0) {
-		*dir_y = -1;
-		*dir_x = 0;
-	} else if (joy_y > 3700 && *dir_y == 0) {
-		*dir_y = 1;
-		*dir_x = 0;
-	}
-
-	if (joy_sw == 0) {
-		*is_pressed = 1;
-	} else {
-		*is_pressed = 0;
-	}
-}
-
-void MAX7219_Init() {
-	// Set Display to normal mode (Test mode)
-	max7219_write(0x0F, 0x00);
-	// Set display to normal mode (Shutdown mode)
-	max7219_write(0x0C, 0x01);
-
-	// Set display intensity
-	max7219_write(0x0A, 0x07);
-
-	max7219_write(0x0B, 0x07);
-	max7219_write(0x09, 0x00);
-}
-
-void fill_matrix(uint8_t rows, uint8_t cols, uint8_t matrix[rows][cols],
-		uint8_t fill_value) {
-	for (uint8_t i = 0; i < rows; i++) {
-		for (uint8_t j = 0; j < cols; j++) {
-			matrix[i][j] = fill_value;
-		}
-	}
-}
-
-void write_to_max7219_from_matrix(uint8_t rows, uint8_t cols,
-		uint8_t matrix[rows][cols]) {
-	for (uint8_t i = 0; i < rows; i++) {
-		for (uint8_t j = 0; j < cols; j++) {
-			if (matrix[i][j] == 1) {
-				uint8_t row_data = 0b01 << i;
-				uint8_t col_addr = 0x0 + j + 1;
-				max7219_write(col_addr, row_data);
-			}
-		}
-	}
-}
-
-void MAX7219_Clear_digit_registers(uint8_t min_reg_addr, uint8_t max_reg_addr) {
-	for (uint8_t i = min_reg_addr; i <= max_reg_addr; i++) {
-		max7219_write(i, 0x00);
-	}
-}
-
-void add_snake_element(uint8_t array[64][2], uint8_t *array_length, uint8_t x,
-		uint8_t y) {
-	array[*array_length][0] = x;
-	array[*array_length][1] = y;
-	*array_length += 1;
-}
-
-void update_snake_position(int8_t snake_dir_x, int8_t snake_dir_y,
-		uint8_t snake[][2], uint8_t snake_length) {
-	uint8_t prev_x;
-	uint8_t prev_y;
-
-	for (uint8_t i = 0; i < snake_length; i++) {
-		if (i == 0) {
-			prev_x = snake[i][0];
-			prev_y = snake[i][1];
-
-			int8_t x = snake[i][0] + snake_dir_x;
-			int8_t y = snake[i][1] + snake_dir_y;
-
-			if (x > 7) {
-				x = 0;
-			} else if (x < 0) {
-				x = 7;
-			}
-
-			if (y > 7) {
-				y = 0;
-			} else if (y < 0) {
-				y = 7;
-			}
-
-			snake[i][0] = x;
-			snake[i][1] = y;
-
-			MATRIX[snake[i][1]][snake[i][0]] = 1;
-
-		} else {
-			int8_t x = snake[i][0];
-			int8_t y = snake[i][1];
-
-			snake[i][0] = prev_x;
-			snake[i][1] = prev_y;
-
-			MATRIX[snake[i][1]][snake[i][0]] = 1;
-
-			prev_x = x;
-			prev_y = y;
-			MATRIX[prev_y][prev_x] = 0;
-		}
-
-	}
-
-}
 
 /* USER CODE END 0 */
 
@@ -260,110 +99,19 @@ int main(void) {
 	MX_USART1_UART_Init();
 	MX_SPI1_Init();
 	/* USER CODE BEGIN 2 */
-	MAX7219_Init();
+	MAX7219_Init(&hspi1);
 
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 
-	uint32_t last_update_time = 0;
-	const uint32_t display_update_interval = 300;
-
-	int8_t snake_dir_x = 0;
-	int8_t snake_dir_y = 0;
-
-	uint8_t snake[64][2];
-	uint8_t snake_length = 0;
-
-	add_snake_element(snake, &snake_length, 4, 3);
-	add_snake_element(snake, &snake_length, 4, 4);
-	add_snake_element(snake, &snake_length, 4, 5);
-	add_snake_element(snake, &snake_length, 4, 6);
-	add_snake_element(snake, &snake_length, 4, 7);
-
-	int8_t joy_is_pressed;
-
-	uint8_t buffer[40];
-
-	MAX7219_Clear_digit_registers(0x01, 0x08);
-
-	fill_matrix(ROWS, COLS, MATRIX, 0);
-
-	for (uint8_t i = 0; i < snake_length; i++) {
-		uint8_t x = snake[i][0];
-		uint8_t y = snake[i][1];
-		MATRIX[y][x] = 1;
-	}
-
-	uint8_t row_data[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-	// Fill array from matrix
-	for (int8_t j = 0; j < 8; j++) {
-		uint8_t data = 0b00000000;
-
-		for (int8_t i = 7; i >= 0; i--) {
-			data = data | MATRIX[i][j] << i;
-		}
-		row_data[j] = data;
-	}
-
-	max7219_write(0x01, row_data[0]);
-	max7219_write(0x02, row_data[1]);
-	max7219_write(0x03, row_data[2]);
-	max7219_write(0x04, row_data[3]);
-	max7219_write(0x05, row_data[4]);
-	max7219_write(0x06, row_data[5]);
-	max7219_write(0x07, row_data[6]);
-	max7219_write(0x08, row_data[7]);
-
-	snake_dir_y = -1;
-
 	while (1) {
+		setup_game(&hspi1, &hadc1);
 
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-
-		joy_controller(&snake_dir_x, &snake_dir_y, &joy_is_pressed);
-
-		if (HAL_GetTick() - last_update_time >= display_update_interval) {
-			last_update_time = HAL_GetTick();
-
-			update_snake_position(snake_dir_x, snake_dir_y, snake,
-					snake_length);
-
-			//write_to_max7219_from_matrix(ROWS, COLS, MATRIX);
-			uint8_t row_data[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-			// Fill array from matrix
-			for (int8_t j = 0; j < 8; j++) {
-				uint8_t data = 0b00000000;
-
-				for (int8_t i = 7; i >= 0; i--) {
-					data = data | MATRIX[i][j] << i;
-				}
-				row_data[j] = data;
-			}
-
-			max7219_write(0x01, row_data[0]);
-			max7219_write(0x02, row_data[1]);
-			max7219_write(0x03, row_data[2]);
-			max7219_write(0x04, row_data[3]);
-			max7219_write(0x05, row_data[4]);
-			max7219_write(0x06, row_data[5]);
-			max7219_write(0x07, row_data[6]);
-			max7219_write(0x08, row_data[7]);
-
-			snprintf(buffer, sizeof(buffer), "X: %d, Y: %d, BTN: %d \r\n",
-					snake_dir_x, snake_dir_y, joy_is_pressed);
-
-			HAL_UART_Transmit(&huart1, buffer, sizeof(buffer), 1000);
-
-			fill_matrix(ROWS, COLS, MATRIX, 0);
-
-		}
-
 	}
 	/* USER CODE END 3 */
 }
