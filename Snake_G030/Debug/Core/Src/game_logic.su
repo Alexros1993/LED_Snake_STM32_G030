@@ -1,6 +1,6 @@
-../Core/Src/game_logic.c:21:6:setup_game	184	static
-../Core/Src/game_logic.c:97:6:run_game	16	static
-../Core/Src/game_logic.c:111:6:joy_controller	40	static
-../Core/Src/game_logic.c:141:6:fill_matrix	48	static
-../Core/Src/game_logic.c:150:6:add_snake_element	24	static
-../Core/Src/game_logic.c:157:6:update_snake_position	40	static
+../Core/Src/game_logic.c:24:6:game_loop	24	static
+../Core/Src/game_logic.c:46:6:setup_game	32	static
+../Core/Src/game_logic.c:71:6:joy_controller	40	static
+../Core/Src/game_logic.c:101:6:fill_matrix	48	static
+../Core/Src/game_logic.c:110:6:add_snake_element	24	static
+../Core/Src/game_logic.c:117:6:update_snake_position	40	static

@@ -7,9 +7,12 @@
 
 #include "game_logic.h"
 
-int8_t MATRIX[ROWS][COLS];
-uint32_t last_update_time = 0;
-const uint32_t display_update_interval = 300;
+const uint8_t SNAKE_START_POS_X = 4;
+
+const uint8_t SNAKE_START_POS_Y = 7;
+
+int8_t MATRIX[ROWS_VAL][COLS_VAL];
+
 int8_t snake_dir_x = 0;
 int8_t snake_dir_y = 0;
 
@@ -18,25 +21,38 @@ uint8_t snake_length = 0;
 
 int8_t joy_is_pressed;
 
-void setup_game(SPI_HandleTypeDef *hspi, ADC_HandleTypeDef* hadc) {
+void game_loop(SPI_HandleTypeDef *hspi, ADC_HandleTypeDef* hadc) {
 	uint32_t last_update_time = 0;
 	const uint32_t display_update_interval = 300;
-	int8_t snake_dir_x = 0;
-	int8_t snake_dir_y = 0;
 
-	uint8_t snake[64][2];
-	uint8_t snake_length = 0;
+	while (1) {
+		joy_controller(&snake_dir_x, &snake_dir_y, &joy_is_pressed, hadc);
 
-	int8_t joy_is_pressed;
+		if (HAL_GetTick() - last_update_time >= display_update_interval) {
+			last_update_time = HAL_GetTick();
 
+			update_snake_position(snake_dir_x, snake_dir_y, snake,
+					snake_length);
 
+			MAX7219_LED_Matrix_fill(MATRIX, hspi);
+
+			fill_matrix(ROWS_VAL, COLS_VAL, MATRIX, 0);
+
+		}
+
+	}
+}
+
+void setup_game(SPI_HandleTypeDef *hspi, ADC_HandleTypeDef* hadc) {
 	add_snake_element(snake, &snake_length, 4, 5);
 	add_snake_element(snake, &snake_length, 4, 6);
 	add_snake_element(snake, &snake_length, 4, 7);
 
+	uint8_t start_matrix_value = 0;
+
 	MAX7219_Clear_digit_registers(0x01, 0x08, hspi);
 
-	fill_matrix(ROWS, COLS, MATRIX, 0);
+	fill_matrix(ROWS_VAL, COLS_VAL, MATRIX, start_matrix_value);
 
 	for (uint8_t i = 0; i < snake_length; i++) {
 		uint8_t x = snake[i][0];
@@ -48,29 +64,9 @@ void setup_game(SPI_HandleTypeDef *hspi, ADC_HandleTypeDef* hadc) {
 
 	snake_dir_y = -1;
 
-	while (1) {
-
-		/* USER CODE END WHILE */
-
-		/* USER CODE BEGIN 3 */
-
-		joy_controller(&snake_dir_x, &snake_dir_y, &joy_is_pressed, hadc);
-
-		if (HAL_GetTick() - last_update_time >= display_update_interval) {
-			last_update_time = HAL_GetTick();
-
-			update_snake_position(snake_dir_x, snake_dir_y, snake,
-					snake_length);
-
-			MAX7219_LED_Matrix_fill(MATRIX, hspi);
-
-
-			fill_matrix(ROWS, COLS, MATRIX, 0);
-
-		}
-
-	}
+	game_loop(hspi, hadc);
 }
+
 
 void joy_controller(int8_t *dir_x, int8_t *dir_y, int8_t *is_pressed,
 		ADC_HandleTypeDef *hadc) {
@@ -102,7 +98,7 @@ void joy_controller(int8_t *dir_x, int8_t *dir_y, int8_t *is_pressed,
 	}
 }
 
-void fill_matrix(uint8_t rows, uint8_t cols, uint8_t matrix[rows][cols],
+void fill_matrix(uint8_t rows, uint8_t cols, int8_t matrix[rows][cols],
 		uint8_t fill_value) {
 	for (uint8_t i = 0; i < rows; i++) {
 		for (uint8_t j = 0; j < cols; j++) {

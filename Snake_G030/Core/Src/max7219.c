@@ -7,7 +7,7 @@
 
 #include "max7219.h"
 
-void MAX7219_LED_Matrix_fill(uint8_t matrix[ROWS][COLS], SPI_HandleTypeDef* hspi) {
+void MAX7219_LED_Matrix_fill(int8_t matrix[ROWS_VAL][COLS_VAL], SPI_HandleTypeDef* hspi) {
 
 	//write_to_max7219_from_matrix(ROWS, COLS, MATRIX);
 	uint8_t row_data[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
